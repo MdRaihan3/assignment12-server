@@ -42,9 +42,9 @@ async function run() {
         })
 
         const verifyToken = async (req, res, next) => {
-            console.log('abadaba authorization', req.headers?.Authorization);
+            console.log('abadaba authorizationsafs', req.headers?.Authorization);
             if (!req.headers?.authorization) {
-                return res.status(401).send({ message: 'Unauthorized access....' })
+                return res.status(401).send({ message: 'Unauthorized access....sadfs' })
             }
             const token = req.headers?.authorization.split(' ')[1]
             console.log("token in verifyToken", token);
