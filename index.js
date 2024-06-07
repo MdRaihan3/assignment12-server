@@ -32,6 +32,7 @@ async function run() {
         const taskCollection = client.db('RWorkerDB').collection('tasks')
         const submissionCollection = client.db('RWorkerDB').collection('submissions')
         const paymentCollection = client.db('RWorkerDB').collection('payments')
+        const withdrawCollection = client.db('RWorkerDB').collection('withdrawal')
 
         // jwt related
         app.post('/jwt', (req, res) => {
@@ -48,9 +49,9 @@ async function run() {
             }
             const token = req.headers?.authorization.split(' ')[1]
             console.log("token in verifyToken", token);
-            if (!token) { return res.status(401).send({ message: 'unauthorized asdfasaccess...' }) }
+            if (!token) { return res.status(401).send({ message: 'unauthorized access...' }) }
             jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-                if (err) { return res.status(400).send({ message: 'Bad Requestasfas' }) }
+                if (err) { return res.status(400).send({ message: 'Bad Request' }) }
                 req.user = decoded
                 next()
             })
@@ -202,6 +203,26 @@ async function run() {
             res.send(result)
         })
 
+        app.get('/mySubmissionCount', async (req, res) => {
+            const userEmail = req.query?.email
+            const query = {workerEmail: userEmail}
+            const result = await submissionCollection.find(query).toArray()
+            const totalSubmissionCount = result.length
+            
+            res.send({totalSubmissionCount})
+        })
+
+        app.get('/mySubmissions', async (req, res) => {
+            const email = req.query?.email
+            const currentPage = parseInt(req.query?.currentPage)
+            const query = { workerEmail: email }
+            const result = await submissionCollection.find(query)
+                .skip(currentPage * 2)
+                .limit(2)
+                .toArray()
+            res.send(result)
+        })
+
         app.get('/submission/creatorEmail/:email', verifyToken, async (req, res) => {
             const email = req.params?.email;
             const query = { creatorEmail: email }
@@ -272,6 +293,31 @@ async function run() {
             res.send({ coinResult, paymentResult })
         })
 
+        // withdraw related
+        app.post('/withdraw', verifyToken, async (req, res) => {
+            const withdrawInfo = req.body
+            const result = await withdrawCollection.insertOne(withdrawInfo)
+            res.send(result)
+        })
+
+        app.get('/withdrawRequest', verifyToken, verifyAdmin, async (req, res) => {
+            const result = await withdrawCollection.find().toArray()
+            res.send(result)
+        })
+
+        app.patch('/withdrawSuccess', async (req, res) => {
+            const reqInfo = req.body;
+            const withdrawId = reqInfo?.withdrawId
+            const query = { _id: new ObjectId(withdrawId) }
+            const deleteResult = await withdrawCollection.deleteOne(query)
+            const workerEmail = reqInfo?.workerEmail
+            const coins = reqInfo?.coin
+            const filter = { email: workerEmail }
+            const updateDoc = { $inc: { coin: -coins } }
+            const updateResult = await userCollection.updateOne(filter, updateDoc)
+            res.send(updateResult)
+        })
+
         // state-related
         app.get('/admin-state', verifyToken, verifyAdmin, async (req, res) => {
             const totalUser = await userCollection.estimatedDocumentCount()
@@ -331,12 +377,12 @@ async function run() {
             res.send({ totalQuantity, totalPayment })
         })
 
-        app.get('/worker-state/:email', verifyToken,  async (req, res) => {
+        app.get('/worker-state/:email', verifyToken, async (req, res) => {
             const email = req.params?.email
             const totalSubmission = await submissionCollection.estimatedDocumentCount()
             const revenue = await submissionCollection.aggregate([
                 {
-                    $match: {workerEmail: email, status: 'approve'}
+                    $match: { workerEmail: email, status: 'approve' }
                 },
                 {
                     $group: {
@@ -348,6 +394,30 @@ async function run() {
             const totalCoin = revenue.length > 0 ? revenue[0].price : 0
 
             res.send({ totalSubmission, totalCoin })
+        })
+
+        // top earners
+        app.get('/top-earners', async (req, res) => {
+            const topEarns = await userCollection.aggregate([
+                {
+                    $match: { role: 'worker' }
+                },
+                {
+                    $sort: { coin: -1 }
+                },
+                {
+                    $limit: 6
+                },
+                {
+                    $project: {
+                        name: 1,
+                        email: 1,
+                        image: 1,
+                        coin: 1
+                    }
+                }
+            ]).toArray()
+            res.send(topEarns)
         })
 
 
