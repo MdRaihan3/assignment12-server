@@ -42,15 +42,15 @@ async function run() {
         })
 
         const verifyToken = async (req, res, next) => {
-            console.log('abadaba authorizationsafs', req.headers?.Authorization);
+            console.log('abadaba authorization', req.headers?.Authorization);
             if (!req.headers?.authorization) {
-                return res.status(401).send({ message: 'Unauthorized access....sadfs' })
+                return res.status(401).send({ message: 'Unauthorized access....' })
             }
             const token = req.headers?.authorization.split(' ')[1]
             console.log("token in verifyToken", token);
-            if (!token) { return res.status(401).send({ message: 'unauthorized access...' }) }
+            if (!token) { return res.status(401).send({ message: 'unauthorized asdfasaccess...' }) }
             jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-                if (err) { return res.status(400).send({ message: 'Bad Request' }) }
+                if (err) { return res.status(400).send({ message: 'Bad Requestasfas' }) }
                 req.user = decoded
                 next()
             })
